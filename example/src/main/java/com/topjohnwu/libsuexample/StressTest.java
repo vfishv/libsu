@@ -45,7 +45,7 @@ public class StressTest {
         void onFile(ExtendedFile file) throws Exception;
     }
 
-    private static final String TEST_DIR= "/system/app";
+    private static final String TEST_DIR= "/data/data";
     private static final int BUFFER_SIZE = 512 * 1024;
     private static final Random r = new Random();
     private static final MessageDigest md;
@@ -68,6 +68,11 @@ public class StressTest {
         remoteFS = fs;
         Shell.EXECUTOR.execute(() -> {
             try {
+                SuFile root = new SuFile(TEST_DIR);
+                for (SuFile suFile : root.listFiles()) {
+                    Log.d(TAG, "perform: " + suFile.getAbsolutePath());
+                }
+                /*
                 collectHashes();
                 // Test I/O streams
                 testShellStream();
@@ -75,6 +80,7 @@ public class StressTest {
                 // Test random I/O
                 testShellRandomIO();
                 testRemoteChannel();
+                */
             } catch (Exception e){
                 Log.d(TAG, "", e);
             } finally {
