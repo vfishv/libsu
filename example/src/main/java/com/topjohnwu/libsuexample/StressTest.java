@@ -228,7 +228,9 @@ public class StressTest {
             }
         } else {
             md.reset();
-            callback.onFile(file);
+            if (callback != null) {
+                callback.onFile(file);
+            }
             verifyHash(file);
         }
     }
