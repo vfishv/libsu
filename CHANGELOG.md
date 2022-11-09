@@ -1,3 +1,12 @@
+## 5.0.3
+
+- [core] Fix `ShellUtils.escapedString(String)`
+- [service] Prevent root process leaks when client process crashed before establishing connection
+
+## 5.0.2
+
+- [service] Resolve `/proc/self/exe` to possibly fix some old Samsung kernel restrictions
+
 ## 5.0.1
 
 - [nio] Update the remote file system's I/O stream implementation with stream specific optimizations. The throughput is about 2.5x larger.
