@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 John "topjohnwu" Wu
+ * Copyright 2023 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,29 +57,7 @@ public final class BuilderImpl extends Shell.Builder {
         return this;
     }
 
-    @NonNull
-    @Override
-    public Shell.Builder setContext(@NonNull Context context) {
-        // This context instance does not need to be stored in the builder,
-        // as we will store the raw ContextImpl of the whole application
-        // into a global static field.
-        if (Utils.context == null) {
-            // Get the ContextImpl first so that getApplicationContext cannot be overridden
-            context = Utils.getContextImpl(context);
-            // Then get the application context, as the provided context could be from
-            // a provider, receiver, service, or activity.
-            Context app = context.getApplicationContext();
-            // getApplicationContext() could return null if the context is provided
-            // during the Application's attach.
-            if (app != null)
-                context = app;
-            // Finally, get the raw ContextImpl of the app.
-            Utils.context = Utils.getContextImpl(context);
-        }
-        return this;
-    }
-
-    public void createInitializers(@NonNull Class<? extends Shell.Initializer>[] clz) {
+    public void setInitializersImpl(Class<? extends Shell.Initializer>[] clz) {
         initializers = new Shell.Initializer[clz.length];
         for (int i = 0; i < clz.length; ++i) {
             try {

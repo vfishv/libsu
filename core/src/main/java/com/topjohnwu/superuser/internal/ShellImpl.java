@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 John "topjohnwu" Wu
+ * Copyright 2023 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,17 +155,6 @@ class ShellImpl extends Shell {
                 String cwd = ShellUtils.escapedString(System.getProperty("user.dir"));
                 STDIN.write(("cd " + cwd + "\n").getBytes(UTF_8));
                 STDIN.flush();
-            }
-
-            if (status == ROOT_SHELL) {
-                STDIN.write(("readlink /proc/self/ns/mnt\n").getBytes(UTF_8));
-                STDIN.flush();
-                s = br.readLine();
-                STDIN.write(("readlink /proc/1/ns/mnt\n").getBytes(UTF_8));
-                STDIN.flush();
-                String s2 = br.readLine();
-                if (!TextUtils.isEmpty(s) && !TextUtils.isEmpty(s2) && TextUtils.equals(s, s2))
-                    status = ROOT_MOUNT_MASTER;
             }
         }
         return status;

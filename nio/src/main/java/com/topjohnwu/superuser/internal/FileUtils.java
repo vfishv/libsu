@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 John "topjohnwu" Wu
+ * Copyright 2023 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,8 +54,6 @@ import java.util.Set;
 @SuppressWarnings({"ConstantConditions", "JavaReflectionMemberAccess"})
 @SuppressLint("DiscouragedPrivateApi")
 class FileUtils {
-
-    private static final String REMOTE_ERR_MSG = "Exception thrown on remote process";
 
     private static Object os;
     private static Method splice;
@@ -198,18 +196,6 @@ class FileUtils {
                 throw new ErrnoException("sendfile", ENOSYS);
             }
         }
-    }
-
-    static void checkException(ParcelValues values) throws IOException {
-        Throwable err = values.getTyped(0);
-        if (err != null) {
-            throw new IOException(REMOTE_ERR_MSG, err);
-        }
-    }
-
-    static <T> T tryAndGet(ParcelValues values) throws IOException {
-        checkException(values);
-        return values.getTyped(1);
     }
 
     @SuppressWarnings("OctalInteger")

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 John "topjohnwu" Wu
+ * Copyright 2023 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ public class RootServiceManager implements Handler.Callback {
         Bundle bundle = new Bundle();
         bundle.putBinder(BUNDLE_BINDER_KEY, binder);
         return new Intent(RECEIVER_BROADCAST)
-                .setPackage(Utils.context.getPackageName())
+                .setPackage(Utils.getContext().getPackageName())
                 .addFlags(HiddenAPIs.FLAG_RECEIVER_FROM_SHELL)
                 .putExtra(INTENT_DAEMON_KEY, isDaemon)
                 .putExtra(INTENT_BUNDLE_KEY, bundle);
@@ -172,9 +172,8 @@ public class RootServiceManager implements Handler.Callback {
         }
 
         return (stdin, stdout, stderr) -> {
-            Context ctx = Utils.getContext();
-            Context de = Utils.getDeContext(ctx);
-            File mainJar = new File(de.getCacheDir(), "main.jar");
+            Context ctx = Utils.getDeContext();
+            File mainJar = new File(ctx.getCacheDir(), "main.jar");
 
             // Dump main.jar as trampoline
             try (InputStream in = ctx.getResources().getAssets().open("main.jar");
@@ -215,7 +214,11 @@ public class RootServiceManager implements Handler.Callback {
                     break;
             }
 
-            String app_process = new File("/proc/self/exe").getCanonicalPath();
+            // We cannot readlink /proc/self/exe on old kernels
+            String app_process = "/system/bin/app_process";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                app_process += Utils.isProcess64Bit() ? "64" : "32";
+            }
             String cmd = String.format(Locale.ROOT,
                     "(%s CLASSPATH=%s %s %s /system/bin %s " +
                     "com.topjohnwu.superuser.internal.RootServerMain '%s' %d %s >/dev/null 2>&1)&",

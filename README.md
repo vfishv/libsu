@@ -15,7 +15,7 @@ An Android library providing a complete solution for apps using root permissions
 ```groovy
 android {
     compileOptions {
-        // This library uses Java 8 features, this is required
+        // The library uses Java 8 features
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -24,7 +24,7 @@ repositories {
     maven { url 'https://jitpack.io' }
 }
 dependencies {
-    def libsuVersion = '5.0.3'
+    def libsuVersion = '5.2.1'
 
     // The core module that provides APIs to a shell
     implementation "com.github.topjohnwu.libsu:core:${libsuVersion}"

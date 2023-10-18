@@ -13,7 +13,9 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         viewBinding = true
+        aidl = true
     }
 
     buildTypes {
@@ -38,7 +40,7 @@ android {
 }
 
 dependencies {
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+    implementation("androidx.annotation:annotation:1.6.0")
     implementation(project(":core"))
     implementation(project(":service"))
     implementation(project(":io"))

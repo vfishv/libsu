@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 John "topjohnwu" Wu
+ * Copyright 2023 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,15 @@ import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.res.Resources;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.util.Log;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
 
@@ -116,6 +119,7 @@ class RootServerMain extends ContextWrapper implements Callable<Object[]> {
         return objs;
     }
 
+    @SuppressLint("DiscouragedPrivateApi")
     public RootServerMain(String[] args) throws Exception {
         super(null);
 
@@ -158,16 +162,74 @@ class RootServerMain extends ContextWrapper implements Callable<Object[]> {
                 System.exit(0);
         }
 
+        // Calling many system APIs can crash on some LG ROMs
+        // Override the system resources object to prevent crashing
+        Resources systemRes = Resources.getSystem();
+        Field systemResField = null;
+        try {
+            // This class only exists on LG ROMs with broken implementations
+            Class.forName("com.lge.systemservice.core.integrity.IntegrityManager");
+            // If control flow goes here, we need the resource hack
+            Resources wrapper = new ResourcesWrapper(systemRes);
+            systemResField = Resources.class.getDeclaredField("mSystem");
+            systemResField.setAccessible(true);
+            systemResField.set(null, wrapper);
+        } catch (ReflectiveOperationException ignored) {}
+
         Context systemContext = getSystemContext();
-        Context context = systemContext.createPackageContext(name.getPackageName(),
-                Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+        Context context;
+        int userId = uid / 100000; // UserHandler.getUserId
+        int flags = Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY;
+        try {
+            UserHandle userHandle = (UserHandle) UserHandle.class
+                    .getDeclaredMethod("of", int.class).invoke(null, userId);
+            context = (Context) systemContext.getClass()
+                    .getDeclaredMethod("createPackageContextAsUser",
+                            String.class, int.class, UserHandle.class)
+                    .invoke(systemContext, name.getPackageName(), flags, userHandle);
+        } catch (Throwable e) {
+            Log.w("IPC", "Failed to create package context as user: " + userId, e);
+            context = systemContext.createPackageContext(name.getPackageName(), flags);
+        }
         attachBaseContext(context);
 
         // Use classloader from the package context to run everything
         ClassLoader cl = context.getClassLoader();
+
+        // Restore the system resources object after classloader is available
+        if (systemResField != null) {
+            try {
+                systemResField.set(null, systemRes);
+            } catch (ReflectiveOperationException ignored) {}
+        }
+
         Class<?> clz = cl.loadClass(name.getClassName());
         Constructor<?> ctor = clz.getDeclaredConstructor();
         ctor.setAccessible(true);
         attachBaseContext.invoke(ctor.newInstance(), this);
+    }
+
+    static class ResourcesWrapper extends Resources {
+
+        @SuppressWarnings("JavaReflectionMemberAccess")
+        @SuppressLint("DiscouragedPrivateApi")
+        public ResourcesWrapper(Resources res) throws ReflectiveOperationException {
+            super(res.getAssets(), res.getDisplayMetrics(), res.getConfiguration());
+            Method getImpl = Resources.class.getDeclaredMethod("getImpl");
+            getImpl.setAccessible(true);
+            Method setImpl = Resources.class.getDeclaredMethod("setImpl", getImpl.getReturnType());
+            setImpl.setAccessible(true);
+            Object impl = getImpl.invoke(res);
+            setImpl.invoke(this, impl);
+        }
+
+        @Override
+        public boolean getBoolean(int id) {
+            try {
+                return super.getBoolean(id);
+            } catch (NotFoundException e) {
+                return false;
+            }
+        }
     }
 }

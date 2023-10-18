@@ -1,3 +1,26 @@
+## 5.2.1
+
+- [service] Fix issue on OnePlus devices when using `Context` internally.
+
+## 5.2.0
+
+- [core] Shell status code `Shell.ROOT_MOUNT_MASTER` is no longer returned as there is no way to reliably determine this information.
+
+## 5.1.0
+
+- [core] New API `Shell.Job.enqueue()` which returns `Future<Shell.Result>` in case you need to retrive asynchronous results without using callbacks
+- [service] Workaround more broken LG system framework
+- [service] Properly support multiuser/work profile
+
+## 5.0.5
+
+- [nio] Optimize internal implementation
+
+## 5.0.4
+
+- [service] Fix incompatibility with old Linux kernels
+- [service] Workaround broken framework implementations in some LG ROMs
+
 ## 5.0.3
 
 - [core] Fix `ShellUtils.escapedString(String)`
@@ -9,7 +32,7 @@
 
 ## 5.0.1
 
-- [nio] Update the remote file system's I/O stream implementation with stream specific optimizations. The throughput is about 2.5x larger.
+- [nio] Update the remote file system's I/O stream implementation with stream specific optimizations. The throughput is improved 2.5x.
 - [nio] Properly annotate nullability of `ExtendedFile`'s `newInputStream()`/`newOutputStream(...)`
 - The `busybox` module is removed. Pin the `busybox` module to version `5.0.0` if you cannot remove its usage immediately
 

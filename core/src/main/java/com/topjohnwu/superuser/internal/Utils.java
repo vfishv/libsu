@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 John "topjohnwu" Wu
+ * Copyright 2023 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -51,7 +52,7 @@ public final class Utils {
     private static int currentRootState = -1;
 
     @SuppressLint("StaticFieldLeak")
-    static Context context;
+    public static Context context;
 
     public static void log(Object log) {
         log(TAG, log);
@@ -79,6 +80,20 @@ public final class Utils {
         return Shell.enableVerboseLogging;
     }
 
+    public static void setContext(Context c) {
+        // Get the ContextImpl first so that getApplicationContext cannot be overridden
+        c = Utils.getContextImpl(c);
+        // Then get the application context, as the provided context could be from
+        // a provider, receiver, service, or activity.
+        Context app = c.getApplicationContext();
+        // getApplicationContext() could return null if the context is provided
+        // during the Application's attach or some other non-standard situation.
+        if (app != null)
+            c = app;
+        // Finally, get the raw ContextImpl of the app.
+        context = Utils.getContextImpl(c);
+    }
+
     @SuppressLint("PrivateApi")
     public static Context getContext() {
         if (context == null) {
@@ -88,7 +103,7 @@ public final class Utils {
                 Context c = (Context) Class.forName("android.app.ActivityThread")
                         .getMethod("currentApplication")
                         .invoke(null);
-                context = getContextImpl(c);
+                context = Utils.getContextImpl(c);
             } catch (Exception e) {
                 // Shall never happen
                 Utils.err(e);
@@ -97,8 +112,9 @@ public final class Utils {
         return context;
     }
 
-    public static Context getDeContext(Context context) {
-        return Build.VERSION.SDK_INT >= 24 ? context.createDeviceProtectedStorageContext() : context;
+    public static Context getDeContext() {
+        Context ctx = getContext();
+        return Build.VERSION.SDK_INT >= 24 ? ctx.createDeviceProtectedStorageContext() : ctx;
     }
 
     public static Context getContextImpl(Context context) {
@@ -179,5 +195,28 @@ public final class Utils {
 
     public static boolean isMainShellRoot() {
         return MainShell.get().isRoot();
+    }
+
+    @SuppressLint("DiscouragedPrivateApi")
+    public static boolean isProcess64Bit() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return Process.is64Bit();
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return false;
+        }
+        try {
+            Class<?> classVMRuntime = Class.forName("dalvik.system.VMRuntime");
+            Method getRuntime = classVMRuntime.getDeclaredMethod("getRuntime");
+            getRuntime.setAccessible(true);
+            Object runtime = getRuntime.invoke(null);
+            Method is64Bit = classVMRuntime.getDeclaredMethod("is64Bit");
+            is64Bit.setAccessible(true);
+            // noinspection ConstantConditions
+            return (boolean) is64Bit.invoke(runtime);
+        } catch (ReflectiveOperationException e) {
+            err(e);
+            return false;
+        }
     }
 }

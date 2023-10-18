@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 John "topjohnwu" Wu
+ * Copyright 2023 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -75,16 +76,11 @@ public abstract class Shell implements Closeable {
      * Constant value {@value}.
      */
     public static final int ROOT_SHELL = 1;
-    /**
-     * Shell status: Root shell with mount master enabled.
-     * One possible result of {@link #getStatus()}.
-     * <p>
-     * Constant value {@value}.
-     */
-    public static final int ROOT_MOUNT_MASTER = 2;
+
+    /* Preserve 2 due to historical reasons */
 
     @Retention(SOURCE)
-    @IntDef({UNKNOWN, NON_ROOT_SHELL, ROOT_SHELL, ROOT_MOUNT_MASTER})
+    @IntDef({UNKNOWN, NON_ROOT_SHELL, ROOT_SHELL})
     @interface Status {}
 
     /**
@@ -235,8 +231,8 @@ public abstract class Shell implements Closeable {
      * {@link Job#to(List)} or {@link Job#to(List, List)}.
      * <p>
      * The main shell will NOT be requested until the developer invokes either
-     * {@link Job#exec()} or {@code Job.submit(...)}. This makes it possible to
-     * construct {@link Job}s before the program has created any root shell.
+     * {@link Job#exec()}, {@link Job#enqueue()}, or {@code Job.submit(...)}. This makes it
+     * possible to construct {@link Job}s before the program has created any root shell.
      * @return a job that the developer can execute or submit later.
      * @see Job#add(String...)
      */
@@ -255,8 +251,8 @@ public abstract class Shell implements Closeable {
      * {@link Job#to(List)} or {@link Job#to(List, List)}.
      * <p>
      * The main shell will NOT be requested until the developer invokes either
-     * {@link Job#exec()} or {@code Job.submit(...)}. This makes it possible to
-     * construct {@link Job}s before the program has created any root shell.
+     * {@link Job#exec()}, {@link Job#enqueue()}, or {@code Job.submit(...)}. This makes it
+     * possible to construct {@link Job}s before the program has created any root shell.
      * @see Job#add(InputStream)
      */
     @NonNull
@@ -303,8 +299,7 @@ public abstract class Shell implements Closeable {
     /**
      * Get the status of the shell.
      * @return the status of the shell.
-     *         Value is either {@link #UNKNOWN}, {@link #NON_ROOT_SHELL}, {@link #ROOT_SHELL}, or
-     *         {@link #ROOT_MOUNT_MASTER}
+     *         Value is either {@link #UNKNOWN}, {@link #NON_ROOT_SHELL}, or {@link #ROOT_SHELL}
      */
     @Status
     public abstract int getStatus();
@@ -382,7 +377,7 @@ public abstract class Shell implements Closeable {
         @SafeVarargs
         @NonNull
         public final Builder setInitializers(@NonNull Class<? extends Initializer>... classes) {
-            ((BuilderImpl) this).createInitializers(classes);
+            ((BuilderImpl) this).setInitializersImpl(classes);
             return this;
         }
 
@@ -413,12 +408,11 @@ public abstract class Shell implements Closeable {
         /**
          * Set the {@link Context} to use when creating a shell.
          * <p>
-         * The {@link Context} instance provided here will not be directly passed to
-         * {@link Initializer#onInit(Context, Shell)}; the raw ContextImpl of the application
-         * will be obtained through the provided context, and that will be used instead.
+         * The ContextImpl of the application will be obtained through the provided context,
+         * and that will be passed to {@link Initializer#onInit(Context, Shell)}.
          * <p>
          * Calling this method is not usually necessary but recommended, as the library can
-         * obtain the current application through Android internal APIs. However, if your
+         * obtain the current application context through Android internal APIs. However, if your
          * application uses {@link android.R.attr#sharedUserId}, or a shell/root service can be
          * created during the application attach process, then setting a Context explicitly
          * using this method is required.
@@ -426,7 +420,10 @@ public abstract class Shell implements Closeable {
          * @return this Builder object for chaining of calls.
          */
         @NonNull
-        public abstract Builder setContext(@NonNull Context context);
+        public final Builder setContext(@NonNull Context context) {
+            Utils.setContext(context);
+            return this;
+        }
 
         /**
          * Combine all of the options that have been set and build a new {@code Shell} instance
@@ -585,7 +582,7 @@ public abstract class Shell implements Closeable {
          * Submit the job to an internal queue to run in the background.
          * The result will be omitted.
          */
-        public void submit() {
+        public final void submit() {
             submit(null);
         }
 
@@ -594,7 +591,7 @@ public abstract class Shell implements Closeable {
          * The result will be returned with a callback running on the main thread.
          * @param cb the callback to receive the result of the job.
          */
-        public void submit(@Nullable ResultCallback cb) {
+        public final void submit(@Nullable ResultCallback cb) {
             submit(UiThreadHandler.executor, cb);
         }
 
@@ -606,6 +603,13 @@ public abstract class Shell implements Closeable {
          * @param cb the callback to receive the result of the job.
          */
         public abstract void submit(@Nullable Executor executor, @Nullable ResultCallback cb);
+
+        /**
+         * Submit the job to an internal queue to run in the background.
+         * @return a {@link Future} to get the result of the job later.
+         */
+        @NonNull
+        public abstract Future<Result> enqueue();
     }
 
     /**
@@ -675,6 +679,12 @@ public abstract class Shell implements Closeable {
     /* ***********
      * Deprecated
      * ***********/
+
+    /**
+     * @deprecated Not used anymore
+     */
+    @Deprecated
+    public static final int ROOT_MOUNT_MASTER = 2;
 
     /**
      * @deprecated use {@link #cmd(String...)}
