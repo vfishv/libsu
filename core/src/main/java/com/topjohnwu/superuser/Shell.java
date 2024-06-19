@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 John "topjohnwu" Wu
+ * Copyright 2024 John "topjohnwu" Wu
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,6 @@ import java.lang.annotation.Retention;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -120,13 +119,13 @@ public abstract class Shell implements Closeable {
     @interface ConfigFlags {}
 
     /**
-     * The {@link ExecutorService} that manages all worker threads used in {@code libsu}.
+     * The {@link Executor} that manages all worker threads used in {@code libsu}.
      * <p>
-     * Note: If the developer decides to replace the default ExecutorService, keep in mind that
+     * Note: If the developer decides to replace the default Executor, keep in mind that
      * each {@code Shell} instance requires at least 3 threads to operate properly.
      */
     @NonNull
-    public static ExecutorService EXECUTOR = Executors.newCachedThreadPool();
+    public static Executor EXECUTOR = Executors.newCachedThreadPool();
 
 
     /**
@@ -238,7 +237,7 @@ public abstract class Shell implements Closeable {
      */
     @NonNull
     public static Job cmd(@NonNull String... commands) {
-        return MainShell.newJob(false, commands);
+        return MainShell.newJob(commands);
     }
 
     /**
@@ -257,7 +256,7 @@ public abstract class Shell implements Closeable {
      */
     @NonNull
     public static Job cmd(@NonNull InputStream in) {
-        return MainShell.newJob(false, in);
+        return MainShell.newJob(in);
     }
 
     /* ***************
@@ -406,6 +405,15 @@ public abstract class Shell implements Closeable {
         public abstract Builder setTimeout(long timeout);
 
         /**
+         * Set the commands that will be used to create a new {@code Shell}.
+         * @param commands commands that will be passed to {@link Runtime#exec(String[])} to create
+         *                 a new {@link Process}.
+         * @return this Builder object for chaining of calls.
+         */
+        @NonNull
+        public abstract Builder setCommands(String... commands);
+
+        /**
          * Set the {@link Context} to use when creating a shell.
          * <p>
          * The ContextImpl of the application will be obtained through the provided context,
@@ -426,11 +434,10 @@ public abstract class Shell implements Closeable {
         }
 
         /**
-         * Combine all of the options that have been set and build a new {@code Shell} instance
-         * with the default methods.
+         * Combine all of the options that have been set and build a new {@code Shell} instance.
          * <p>
-         * There are 3 methods to construct a Unix shell; if any method fails, it will fallback to
-         * the next method:
+         * If not {@link #setCommands(String...)}, there are 3 methods to construct a Unix shell;
+         * if any method fails, it will fallback to the next method:
          * <ol>
          *     <li>If {@link #FLAG_NON_ROOT_SHELL} is not set and {@link #FLAG_MOUNT_MASTER}
          *     is set, construct a Unix shell by calling {@code su --mount-master}.
@@ -442,7 +449,11 @@ public abstract class Shell implements Closeable {
          *     conditions, but should it fail, it will throw {@link NoShellException}</li>
          * </ol>
          * The developer should check the status of the returned {@code Shell} with
-         * {@link #getStatus()} since it may be constructed with any of the 3 possible methods.
+         * {@link #getStatus()} since it may be constructed with calling {@code sh}.
+         * <p>
+         * If {@link #setCommands(String...)} is called, the provided commands will be used to
+         * create a new {@link Process} directly. If the process fails to create, or the process
+         * is not a valid shell, it will throw {@link NoShellException}.
          * @return the created {@code Shell} instance.
          * @throws NoShellException impossible to construct a {@link Shell} instance, or
          * initialization failed when using the configured {@link Initializer}s.
@@ -460,7 +471,9 @@ public abstract class Shell implements Closeable {
          * initialization failed when using the configured {@link Initializer}s.
          */
         @NonNull
-        public abstract Shell build(String... commands);
+        public final Shell build(String... commands) {
+            return setCommands(commands).build();
+        }
 
         /**
          * Combine all of the options that have been set and build a new {@code Shell} instance
@@ -685,42 +698,6 @@ public abstract class Shell implements Closeable {
      */
     @Deprecated
     public static final int ROOT_MOUNT_MASTER = 2;
-
-    /**
-     * @deprecated use {@link #cmd(String...)}
-     */
-    @Deprecated
-    @NonNull
-    public static Job su(@NonNull String... commands) {
-        return MainShell.newJob(true, commands);
-    }
-
-    /**
-     * @deprecated use {@link #cmd(String...)}
-     */
-    @Deprecated
-    @NonNull
-    public static Job sh(@NonNull String... commands) {
-        return MainShell.newJob(false, commands);
-    }
-
-    /**
-     * @deprecated use {@link #cmd(InputStream)}
-     */
-    @Deprecated
-    @NonNull
-    public static Job su(@NonNull InputStream in) {
-        return MainShell.newJob(true, in);
-    }
-
-    /**
-     * @deprecated use {@link #cmd(InputStream)}
-     */
-    @Deprecated
-    @NonNull
-    public static Job sh(@NonNull InputStream in) {
-        return MainShell.newJob(false, in);
-    }
 
     /**
      * Whether the application has access to root.
